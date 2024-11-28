@@ -3,6 +3,7 @@ import uuid
 from flask import Flask, request, jsonify, render_template, session
 import openai
 from flask_cors import CORS
+import json  # 한글 처리를 위해 json 모듈 사용
 
 app = Flask(__name__)
 CORS(app)
@@ -26,7 +27,6 @@ def index():
         session["conversation"] = []  # 개별 대화 기록 초기화
     return render_template("talking GPT.html")
 
-
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json()
@@ -48,7 +48,7 @@ def chat():
             messages=[
                 {"role": "system", "content": system_prompt}
             ] + conversation,
-            max_tokens=100,
+            max_tokens=3000,
             temperature=0.7,
         )
 
@@ -58,11 +58,20 @@ def chat():
         # 갱신된 대화 이력 세션에 저장
         session["conversation"] = conversation
 
-        return jsonify({"reply": bot_reply})
+        # ensure_ascii=False로 유니코드 문자 보존
+        return app.response_class(
+            response=json.dumps({"reply": bot_reply}, ensure_ascii=False),
+            status=200,
+            mimetype="application/json"
+        )
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+        # 오류 시에도 ensure_ascii=False 적용
+        return app.response_class(
+            response=json.dumps({"error": str(e)}, ensure_ascii=False),
+            status=500,
+            mimetype="application/json"
+        )
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=True)

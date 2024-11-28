@@ -32,20 +32,19 @@
         }
 
         .chat-output {
-            position: absolute;
-            top: 20%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 15px;
-            white-space: nowrap;
-            border-right: 2px solid white;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.5);
-            overflow: hidden;
-            z-index: 1;
-            text-align: center;
-            white-space: pre-wrap;
             word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap; /* 줄바꿈 허용 및 \n 처리 */
+            width: 80%;
+            max-width: 80vw;
+            max-height: 80%;
+            overflow-y: auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            line-height: 1.6;
+            border-radius: 10px;
+            box-sizing: border-box;
         }
 
         .chat-input-container {
@@ -127,41 +126,23 @@
             cursor: pointer;
             z-index: 2;
         }
-
-        @keyframes typing {
-            from { width: 0; }
-            to { width: 100%; }
-        }
-
-        .typing {
-            animation: typing 3s steps(30, end) forwards;
-            white-space: nowrap;
-            overflow: hidden;
-            text-align: center;
-        }
     </style>
 </head>
 <body>
 
-<!-- 배경 동영상 -->
 <video class="background-video" autoplay loop muted>
     <source src="/static/background_video.mp4" type="video/mp4">
     브라우저가 동영상을 지원하지 않습니다.
 </video>
 
-<!-- 챗봇 응답을 한 줄로 표시하는 영역 -->
 <div class="chat-output" id="chat-output"></div>
-
-<!-- 채팅 기록 보기 버튼 -->
 <button class="history-button" onclick="toggleChatHistory()">채팅 내역 보기</button>
 
-<!-- 채팅 기록 표시 영역 -->
 <div class="chat-history" id="chat-history">
     <button class="close-button" onclick="toggleChatHistory()">닫기</button>
     <div id="chat-history-content"></div>
 </div>
 
-<!-- 채팅 입력 영역 -->
 <div class="chat-input-container">
     <input type="text" id="chat-input" class="chat-input" placeholder="메시지를 입력하세요...">
     <button class="send-button" onclick="sendMessage()">보내기</button>
@@ -176,52 +157,54 @@
         chatHistoryDiv.style.display = chatHistoryVisible ? 'block' : 'none';
     }
 
-    function formatResponse(message) {
-        const maxCharsPerLine = 100;
-        let words = message.split(' ');
-        let formattedMessage = '';
-        let currentLine = '';
-
-        for (let i = 0; i < words.length; i++) {
-            if ((currentLine + words[i]).length > maxCharsPerLine) {
-                formattedMessage += currentLine.trim() + '\n';
-                currentLine = '';
-            }
-            currentLine += words[i] + ' ';
-        }
-        formattedMessage += currentLine.trim();
-
-        return formattedMessage;
-    }
-
-    async function sendMessage() {
+    function sendMessage() {
         const chatInput = document.getElementById('chat-input');
+        const chatOutputDiv = document.getElementById('chat-output');
         const userMessage = chatInput.value.trim();
 
         if (userMessage !== "") {
             displayUserMessage(userMessage);
             chatInput.value = "";
+            chatOutputDiv.textContent = "";
 
-            try {
-                const response = await fetch('http://okzjnphbxe.us14.qoddiapp.com/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ message: userMessage })
-                });
-
-                const data = await response.json();
+            fetch('http://okzjnphbxe.us14.qoddiapp.com/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: userMessage })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+                return response.json();
+            })
+            .then(data => {
                 if (data.reply) {
                     displayBotReply(data.reply);
                 } else {
-                    displayBotReply("응답을 받을 수 없습니다.");
+                    displayBotReply("응답을 가져오는 중 문제가 발생했습니다.");
                 }
-            } catch (error) {
+            })
+            .catch(error => {
                 console.error('Error:', error);
                 displayBotReply("오류가 발생했습니다.");
-            }
+            });
         }
+    }
+
+    function displayBotReply(message) {
+        const chatOutputDiv = document.getElementById('chat-output');
+        const chatHistoryContent = document.getElementById('chat-history-content');
+        const formattedMessage = formatResponse(message);
+
+        chatOutputDiv.textContent = formattedMessage;
+
+        const botReplyDiv = document.createElement('div');
+        botReplyDiv.textContent = "AI: " + message;
+        chatHistoryContent.appendChild(botReplyDiv);
+        chatHistoryContent.scrollTop = chatHistoryContent.scrollHeight;
     }
 
     function displayUserMessage(message) {
@@ -232,21 +215,20 @@
         chatHistoryContent.scrollTop = chatHistoryContent.scrollHeight;
     }
 
-    function displayBotReply(message) {
-        const chatHistoryContent = document.getElementById('chat-history-content');
-        const botMessageDiv = document.createElement('div');
-        botMessageDiv.textContent = "챗봇: " + message;
-        chatHistoryContent.appendChild(botMessageDiv);
-        chatHistoryContent.scrollTop = chatHistoryContent.scrollHeight;
+    function formatResponse(message) {
+        const maxCharsPerLine = 300;
+        let formattedMessage = '';
+        let currentLine = '';
 
-        const chatOutputDiv = document.getElementById('chat-output');
-        chatOutputDiv.classList.remove('typing');
-
-        void chatOutputDiv.offsetWidth;
-
-        chatOutputDiv.innerHTML = "";
-        chatOutputDiv.textContent = formatResponse(message);
-        chatOutputDiv.classList.add('typing');
+        for (let i = 0; i < message.length; i++) {
+            currentLine += message[i];
+            if (currentLine.length >= maxCharsPerLine) {
+                formattedMessage += currentLine.trim() + '\n';
+                currentLine = '';
+            }
+        }
+        formattedMessage += currentLine.trim();
+        return formattedMessage;
     }
 
     document.getElementById('chat-input').addEventListener('keydown', function(e) {
