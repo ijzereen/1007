@@ -13,6 +13,10 @@ openai.api_key = os.environ.get("OPENAI_API_KEY")
 # 세션을 위한 secret key 설정
 app.secret_key = os.environ.get("SECRET_KEY", "your_secret_key_here")
 
+# 프롬프트를 파일에서 읽어오는 함수
+def load_prompt():
+    with open("prompt.txt", "r", encoding="utf-8") as file:
+        return file.read()
 
 @app.route("/")
 def index():
@@ -36,15 +40,14 @@ def chat():
     conversation.append({"role": "user", "content": user_message})
 
     try:
+        # 프롬프트 파일에서 읽어오기
+        system_prompt = load_prompt()
+
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {
-                    "role": "system",
-                    "content": "You are a helpful private detective. Speak in 100 characters or less",
-                }
-            ]
-            + conversation,
+                {"role": "system", "content": system_prompt}
+            ] + conversation,
             max_tokens=100,
             temperature=0.7,
         )
